@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* Дизайн-система Nimb — Mocha Taupe (см. DESIGN.md).
+   Тёплый нейтрал, низкая насыщенность, светлый фон. Ноль красного/зелёного. */
+:root {
+  --bg: #efe8df;
+  --surface: #e2d8cb;
+  --raised: #f7f2eb; /* активный сегмент переключателя */
+  --ink: #2c2620;
+  --muted: #6e6357; /* вторичный текст + «+ добавить»; контраст 4.82 (AA) */
+  --accent: #b0703e; /* жжёный янтарь; ТОЛЬКО мелкие/активные акценты */
+  --line: #ddd1c1;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-line: var(--line);
+
+  --font-display: var(--font-spectral); /* герой/диапазон */
+  --font-sans: var(--font-golos); /* тело/UI */
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-golos), -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Дыхание 4-7-8 на экране заземления (E6). Цикл 19s: вдох 4s (scale→1),
+   задержка 7s (hold), выдох 8s (scale→0.62). Только transform — дёшево и
+   уважает prefers-reduced-motion (DESIGN.md: медленно, ease-out, transform). */
+@keyframes nimb-breath {
+  0% { transform: scale(0.62); }
+  21.05% { transform: scale(1); }   /* 4s / 19s — конец вдоха */
+  57.89% { transform: scale(1); }   /* +7s — конец задержки */
+  100% { transform: scale(0.62); }  /* +8s — конец выдоха */
+}
+.nimb-breath {
+  animation: nimb-breath 19s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nimb-breath {
+    animation: none;
+    transform: scale(0.86);
+  }
+}
