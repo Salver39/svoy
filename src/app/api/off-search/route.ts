@@ -31,9 +31,8 @@ const PAGE_SIZE = 20;
 // OFF просит идентифицировать клиента. Строка УХОДИТ на серверы OFF при каждом
 // запросе, поэтому контакт — ТОЛЬКО публичный URL приложения (не персональные
 // данные). НЕ подставлять личный e-mail: это передача PII третьей стороне
-// (минимизация данных). TODO(E10): дополнить развёрнутым URL, напр.
-// 'Svoy/0.1 (https://<app>.vercel.app)', когда домен известен после деплоя.
-const USER_AGENT = 'Svoy/0.1 (pilot; calorie tracker)';
+// (минимизация данных). URL приложения — публичный, не PII.
+const USER_AGENT = 'Svoy/0.1 (pilot; https://svoy-salver39s-projects.vercel.app)';
 
 /** Один запрос к OFF с собственным таймаутом. */
 async function fetchOff(url: string): Promise<Response> {
