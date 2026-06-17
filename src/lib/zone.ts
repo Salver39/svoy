@@ -11,16 +11,15 @@
 // тянет в дефицит — нижняя граница = TDEE, верхняя = TDEE+10%. Невидимо.
 
 import { RECOVERY_BMI_THRESHOLD, RECOVERY_SURPLUS } from '@/config/safety';
-import type { Sex, ActivityLevel, Zone, WorkoutIntensity } from '@/db/schema';
+import type { Sex, Zone, WorkoutIntensity } from '@/db/schema';
 
-// Коэффициенты активности Mifflin-St Jeor.
-const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
-  sedentary: 1.2,
-  light: 1.375,
-  moderate: 1.55,
-  active: 1.725,
-  very_active: 1.9,
-};
+// Базовый множитель к BMR — ФИКСИРОВАННЫЙ для всех (R1, 2026-06-17). Раньше зависел
+// от выбранного образа жизни (sedentary..very_active), но это задваивало активность
+// с per-day отметкой (F8). Теперь образ жизни — только сигнал (schema.ActivitySignal),
+// а база считается как «обычный день» с лёгкой повседневной активностью. 1.375 —
+// щадящая сторона (анти-рестрикция: недокорм опаснее перекорма для этой аудитории).
+// ⚠️ ЗНАЧЕНИЕ НА ПОДТВЕРЖДЕНИЕ ДИЕТОЛОГУ (та же зона ответственности, что SAFETY-1).
+const BASE_ACTIVITY_FACTOR = 1.375;
 
 const ZONE_SPREAD = 0.15; // ±15%
 
@@ -29,7 +28,6 @@ export interface ZoneInput {
   weight: number; // кг
   age: number; // лет
   sex: Sex;
-  activity: ActivityLevel;
 }
 
 /**
@@ -43,7 +41,7 @@ export function mifflinBMR(input: ZoneInput): number {
 }
 
 export function tdee(input: ZoneInput): number {
-  return mifflinBMR(input) * ACTIVITY_FACTOR[input.activity];
+  return mifflinBMR(input) * BASE_ACTIVITY_FACTOR;
 }
 
 /**
@@ -94,10 +92,9 @@ export function bmrFromProfile(p: {
   weight: number | null;
   age: number;
   sex: Sex;
-  activity: ActivityLevel;
 }): number {
   const weight = p.weight ?? proxyWeightFromHeight(p.height);
-  return mifflinBMR({ height: p.height, weight, age: p.age, sex: p.sex, activity: p.activity });
+  return mifflinBMR({ height: p.height, weight, age: p.age, sex: p.sex });
 }
 
 /** BMI из роста (см) и веса (кг). Общий хелпер (zone-формула + metrics). */

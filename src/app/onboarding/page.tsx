@@ -49,7 +49,6 @@ export default function OnboardingPage() {
       weight,
       age: p.age,
       sex: p.sex,
-      activity: p.activity,
     });
   }
 

@@ -38,7 +38,6 @@ export function ModeSwitcher({ profile, mode, onChange }: Props) {
         weight,
         age: profile.age,
         sex: profile.sex,
-        activity: profile.activity,
       });
     }
 

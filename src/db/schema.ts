@@ -3,12 +3,14 @@
 
 export type Sex = 'female' | 'male';
 
-export type ActivityLevel =
-  | 'sedentary'
-  | 'light'
-  | 'moderate'
-  | 'active'
-  | 'very_active';
+// Сигнал об образе жизни (R1, 2026-06-17). СОЗНАТЕЛЬНО НЕ влияет на расчёт зоны:
+// активность теперь отмечается per-day (F8), а базовая зона считается с
+// фиксированным множителем — иначе образ жизни + per-day отметка задваивали бы
+// активность. Это только сигнал о человеке (для будущей аналитики/персонализации).
+export type ActivitySignal =
+  | 'none' // почти нет физической активности
+  | 'sometimes' // иногда
+  | 'regular'; // регулярно
 
 export type AppMode = 'numeric' | 'soft';
 
@@ -46,7 +48,7 @@ export interface UserProfile {
   weight: number | null; // кг; null если вес пропущен (опционален при срабатывании слоя 1)
   age: number;
   sex: Sex;
-  activity: ActivityLevel;
+  activity: ActivitySignal; // сигнал об образе жизни; НЕ влияет на расчёт зоны (R1)
   mode: AppMode; // выбран пользователем явно; numeric — дефолт
   // SAFETY-1 (2026-06-16): отдельное поле защитного минимума упразднено —
   // минимум = BMR пользователя, выводится из height/weight/age/sex (lib/zone.ts),

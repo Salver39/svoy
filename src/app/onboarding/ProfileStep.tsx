@@ -4,7 +4,7 @@
 // при срабатывании слоя 1 (SPEC «Безопасность»: вопрос о весе сам триггерный).
 // Если вес пропущен, формула берёт proxy по серединке нормального BMI.
 
-import type { Sex, ActivityLevel, AppMode } from '@/db/schema';
+import type { Sex, ActivitySignal, AppMode } from '@/db/schema';
 import type { ProfileDraft } from './types';
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
@@ -12,12 +12,12 @@ const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'male', label: 'Мужской' },
 ];
 
-const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string }[] = [
-  { value: 'sedentary', label: 'Сидячий образ жизни' },
-  { value: 'light', label: 'Лёгкая активность' },
-  { value: 'moderate', label: 'Умеренная активность' },
-  { value: 'active', label: 'Высокая активность' },
-  { value: 'very_active', label: 'Очень высокая' },
+// Образ жизни — СИГНАЛ о человеке, НЕ влияет на расчёт зоны (R1). Сами тренировки
+// учитываются per-day на Today (F8), поэтому здесь — только частота активности.
+const ACTIVITY_OPTIONS: { value: ActivitySignal; label: string }[] = [
+  { value: 'none', label: 'Почти нет' },
+  { value: 'sometimes', label: 'Иногда' },
+  { value: 'regular', label: 'Регулярно' },
 ];
 
 function NumberField({
@@ -134,10 +134,10 @@ export function ProfileStep({
       </fieldset>
 
       <label className="mt-6 block">
-        <span className="text-[14px] text-muted">Активность</span>
+        <span className="text-[14px] text-muted">Физическая активность</span>
         <select
           value={draft.activity}
-          onChange={(e) => set({ activity: e.target.value as ActivityLevel })}
+          onChange={(e) => set({ activity: e.target.value as ActivitySignal })}
           className="mt-2 w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink
                      focus:border-accent focus:outline-none"
         >

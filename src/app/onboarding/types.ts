@@ -3,7 +3,7 @@
 // это и есть «дверь в один конец»: прервал на середине → профиля нет → при
 // следующем заходе онбординг начинается заново.
 
-import type { Sex, ActivityLevel, AppMode } from '@/db/schema';
+import type { Sex, ActivitySignal, AppMode } from '@/db/schema';
 import type { ScreeningAnswers } from '@/lib/screening';
 
 export type OnboardingStep = 'screening' | 'mode' | 'profile' | 'result';
@@ -13,7 +13,7 @@ export interface ProfileDraft {
   weight: number | null; // кг; null = пропущено (опционально при триггере слоя 1)
   age: number | null;
   sex: Sex | null; // null = не выбран; явный выбор обязателен (без гендер-дефолта)
-  activity: ActivityLevel;
+  activity: ActivitySignal; // сигнал об образе жизни; на расчёт зоны НЕ влияет (R1)
 }
 
 export interface OnboardingDraft {
@@ -30,6 +30,6 @@ export const EMPTY_DRAFT: OnboardingDraft = {
     weight: null,
     age: null,
     sex: null, // без гендер-дефолта — пользователь выбирает явно
-    activity: 'moderate',
+    activity: 'sometimes', // нейтральный дефолт сигнала; зону не двигает
   },
 };
