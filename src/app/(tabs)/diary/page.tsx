@@ -6,9 +6,11 @@
 // restriction). Каждая запись показывает только свои калории.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FoodItem, LogEntry, Meal } from '@/db/schema';
+import type { FoodItem, LogEntry, Meal, WorkoutIntensity } from '@/db/schema';
 import { getDB } from '@/db/client';
 import { cacheFoodItem } from '@/lib/off-api';
+import { getWorkoutForDate, setWorkoutForDate } from '@/lib/workout';
+import { ActivityMark } from './ActivityMark';
 import {
   addLogEntry,
   deleteLogEntry,
@@ -39,6 +41,8 @@ export default function DiaryPage() {
   // Снимок последней удалённой записи для undo (F3).
   const [undoEntry, setUndoEntry] = useState<Omit<LogEntry, 'id'> | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // F8 (R2): отметка активности на день переехала с Today сюда. Разовая, лок на день.
+  const [workout, setWorkout] = useState<WorkoutIntensity | null>(null);
 
   const reload = useCallback(async () => {
     const list = await getEntriesForDate(date);
@@ -55,6 +59,11 @@ export default function DiaryPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Подтягиваем сегодняшнюю отметку активности (если уже сделана — locked-вид).
+  useEffect(() => {
+    getWorkoutForDate(date).then((w) => setWorkout(w?.intensity ?? null));
+  }, [date]);
 
   // Чистим таймер undo при размонтировании.
   useEffect(() => () => {
@@ -90,6 +99,18 @@ export default function DiaryPage() {
     <div className="mx-auto max-w-md px-6 pb-8 pt-8">
       <h1 className="text-[22px] font-semibold text-ink">Дневник</h1>
       <p className="mt-1 text-[14px] text-muted">сегодня</p>
+
+      {/* F8 (R2): отметка активности сверху Дневника. Поднимает дневную зону на
+          Today; здесь — единственное место контрола. Разовая, лок на день. */}
+      <div className="mt-6">
+        <ActivityMark
+          intensity={workout}
+          onChange={async (next) => {
+            await setWorkoutForDate(date, next);
+            setWorkout(next);
+          }}
+        />
+      </div>
 
       <div className="mt-6 flex flex-col gap-6">
         {MEALS.map((meal) => (

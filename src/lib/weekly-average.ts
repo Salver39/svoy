@@ -8,7 +8,7 @@
 
 import { getDB } from '@/db/client';
 import { todayISO } from './log-entry';
-import type { Zone } from '@/db/schema';
+import type { FoodItem, Zone } from '@/db/schema';
 
 const WINDOW_DAYS = 7;
 
@@ -21,11 +21,20 @@ function isoDaysAgo(n: number): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Средние Б/Ж/У за день по дням с макро-данными (для «итогов недели»). */
+export interface WeeklyMacros {
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
 export interface WeeklySummary {
   /** Среднесуточная энергия по дням с данными; null — данных за окно нет. */
   average: number | null;
   /** Сколько из последних 7 дней содержат хотя бы одну запись. */
   daysWithData: number;
+  /** Средние Б/Ж/У за день (по дням, где есть хоть один макрос); null — нет. */
+  macros: WeeklyMacros | null;
 }
 
 export async function getWeeklySummary(): Promise<WeeklySummary> {
@@ -38,29 +47,55 @@ export async function getWeeklySummary(): Promise<WeeklySummary> {
     .between(start, end, true, true)
     .toArray();
 
-  if (entries.length === 0) return { average: null, daysWithData: 0 };
+  if (entries.length === 0) return { average: null, daysWithData: 0, macros: null };
 
   const ids = [...new Set(entries.map((e) => e.foodItemId))];
   const foods = await db.foodItems.bulkGet(ids);
-  const per100 = new Map<number, number>();
+  const byId = new Map<number, FoodItem>();
   foods.forEach((f) => {
-    if (f?.id != null) per100.set(f.id, f.caloriesPer100g);
+    if (f?.id != null) byId.set(f.id, f);
   });
 
   const perDay = new Map<string, number>();
+  // Дневные суммы макросов считаем независимо от калорий: запись «без числа»
+  // (caloriesPer100g 0) всё равно может нести Б/Ж/У. День попадает в среднее
+  // по макросам, если за него есть хоть один ненулевой макрос.
+  const perDayMacros = new Map<string, WeeklyMacros>();
   for (const e of entries) {
-    const c = per100.get(e.foodItemId) ?? 0;
+    const food = byId.get(e.foodItemId);
+    const c = food?.caloriesPer100g ?? 0;
     // Записи «без числа» (caloriesPer100g 0 — залогированы в мягком режиме)
     // не участвуют в численном среднем: иначе тянут его вниз и читаются как
     // недоедание. Это согласуется с принципом «не патологизируем недо-лог».
-    if (c <= 0) continue;
-    perDay.set(e.date, (perDay.get(e.date) ?? 0) + (c * e.grams) / 100);
+    if (c > 0) {
+      perDay.set(e.date, (perDay.get(e.date) ?? 0) + (c * e.grams) / 100);
+    }
+    if (food) {
+      const factor = e.grams / 100;
+      const m = perDayMacros.get(e.date) ?? { protein: 0, fat: 0, carbs: 0 };
+      if (food.protein != null) m.protein += food.protein * factor;
+      if (food.fat != null) m.fat += food.fat * factor;
+      if (food.carbs != null) m.carbs += food.carbs * factor;
+      perDayMacros.set(e.date, m);
+    }
   }
 
+  // Среднее по макросам — по дням, где есть хоть один ненулевой макрос.
+  const macroDays = [...perDayMacros.values()].filter(
+    (m) => m.protein > 0 || m.fat > 0 || m.carbs > 0,
+  );
+  const macros: WeeklyMacros | null = macroDays.length
+    ? {
+        protein: macroDays.reduce((a, m) => a + m.protein, 0) / macroDays.length,
+        fat: macroDays.reduce((a, m) => a + m.fat, 0) / macroDays.length,
+        carbs: macroDays.reduce((a, m) => a + m.carbs, 0) / macroDays.length,
+      }
+    : null;
+
   const totals = [...perDay.values()];
-  if (totals.length === 0) return { average: null, daysWithData: 0 };
+  if (totals.length === 0) return { average: null, daysWithData: 0, macros };
   const average = totals.reduce((a, b) => a + b, 0) / totals.length;
-  return { average, daysWithData: totals.length };
+  return { average, daysWithData: totals.length, macros };
 }
 
 /**
