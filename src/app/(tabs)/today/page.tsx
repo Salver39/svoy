@@ -13,7 +13,7 @@ import { getEntriesForDate, todayISO } from '@/lib/log-entry';
 import { getWeeklySummary, type WeeklySummary } from '@/lib/weekly-average';
 import { summarizeDay, type MealSummary } from '@/lib/day-meals';
 import { raiseZoneForWorkout } from '@/lib/zone';
-import { getWorkoutForDate, setWorkoutForDate, clearWorkoutForDate } from '@/lib/workout';
+import { getWorkoutForDate, setWorkoutForDate } from '@/lib/workout';
 import { cycleNoteForWeek } from '@/content/cycle-note';
 import { isSoftCheckInDue, recordSoftCheckIn } from '@/lib/soft-checkin';
 import { WeeklyAverage } from './WeeklyAverage';
@@ -95,13 +95,12 @@ export default function TodayPage() {
         workoutActive={workout != null}
       />
 
-      {/* F8: отметка тренировки на день — поднимает зону выше. */}
+      {/* F8: отметка активности на день — поднимает зону выше. Разовое действие:
+          после выбора блок блокируется до завтра (без отмены). */}
       <WorkoutMark
         intensity={workout}
         onChange={async (next) => {
-          const date = todayISO();
-          if (next) await setWorkoutForDate(date, next);
-          else await clearWorkoutForDate(date);
+          await setWorkoutForDate(todayISO(), next);
           setWorkout(next);
         }}
       />
