@@ -5,14 +5,17 @@
 // в IndexedDB и не теряет историю LogEntry (E5 AC #1).
 // Запись ModeSwitch для метрики частоты переключений — E9 (recordModeSwitch).
 
-import type { AppMode } from '@/db/schema';
+import type { AppMode, UserProfile, Zone } from '@/db/schema';
 import { getDB } from '@/db/client';
 import { recordModeSwitch } from '@/lib/events';
+import { computeZone, proxyWeightFromHeight } from '@/lib/zone';
 
 interface Props {
-  profileId: number;
+  profile: UserProfile;
   mode: AppMode;
-  onChange: (mode: AppMode) => void;
+  // zone передаётся, только когда переключение в numeric впервые посчитало её
+  // (F6) — чтобы родитель обновил стейт и виджет перерисовался сразу.
+  onChange: (mode: AppMode, zone?: Zone) => void;
 }
 
 const OPTIONS: { value: AppMode; label: string }[] = [
@@ -20,12 +23,30 @@ const OPTIONS: { value: AppMode; label: string }[] = [
   { value: 'soft', label: 'без чисел' },
 ];
 
-export function ModeSwitcher({ profileId, mode, onChange }: Props) {
+export function ModeSwitcher({ profile, mode, onChange }: Props) {
   async function select(next: AppMode) {
     if (next === mode) return;
-    await getDB().userProfile.update(profileId, { mode: next });
+    const update: Partial<Pick<UserProfile, 'mode' | 'zone'>> = { mode: next };
+
+    // F6: при переходе в numeric гарантируем наличие зоны. Если онбординг был
+    // пройден в soft до фикса (zone отсутствует в БД), считаем её здесь из полей
+    // профиля — иначе виджет показал бы «зона ещё не рассчитана».
+    if (next === 'numeric' && !profile.zone) {
+      const weight = profile.weight ?? proxyWeightFromHeight(profile.height);
+      update.zone = computeZone({
+        height: profile.height,
+        weight,
+        age: profile.age,
+        sex: profile.sex,
+        activity: profile.activity,
+      });
+    }
+
+    if (profile.id != null) {
+      await getDB().userProfile.update(profile.id, update);
+    }
     await recordModeSwitch(mode, next);
-    onChange(next);
+    onChange(next, update.zone);
   }
 
   return (

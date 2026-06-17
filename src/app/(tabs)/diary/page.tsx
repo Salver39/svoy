@@ -5,7 +5,7 @@
 // 2: дневной счётчик-число не показываем — это поверхность compensatory
 // restriction). Каждая запись показывает только свои калории.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FoodItem, LogEntry, Meal } from '@/db/schema';
 import { getDB } from '@/db/client';
 import { cacheFoodItem } from '@/lib/off-api';
@@ -22,8 +22,10 @@ import { useAppMode } from '@/lib/soft-mode';
 import { LogEntryRow } from './LogEntryRow';
 import { SearchView } from './SearchView';
 import { ManualEntryForm } from './ManualEntryForm';
+import { PortionStep } from './PortionStep';
+import { UndoSnackbar } from './UndoSnackbar';
 
-const DEFAULT_GRAMS = 100; // быстрый дефолт; правится в один тап из записи
+const UNDO_TIMEOUT_MS = 6000;
 
 export default function DiaryPage() {
   const date = todayISO();
@@ -32,6 +34,11 @@ export default function DiaryPage() {
   const [foods, setFoods] = useState<Map<number, FoodItem>>(new Map());
   const [addingMeal, setAddingMeal] = useState<Meal | null>(null);
   const [manualMode, setManualMode] = useState(false);
+  // Выбранный продукт, ждущий ввода порции (F3): грамм задаём при выборе.
+  const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
+  // Снимок последней удалённой записи для undo (F3).
+  const [undoEntry, setUndoEntry] = useState<Omit<LogEntry, 'id'> | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reload = useCallback(async () => {
     const list = await getEntriesForDate(date);
@@ -49,11 +56,31 @@ export default function DiaryPage() {
     reload();
   }, [reload]);
 
-  async function addFood(food: FoodItem, meal: Meal) {
+  // Чистим таймер undo при размонтировании.
+  useEffect(() => () => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+  }, []);
+
+  async function addFood(food: FoodItem, meal: Meal, grams: number) {
     const foodItemId = await cacheFoodItem(food);
-    await addLogEntry({ date, meal, foodItemId, grams: DEFAULT_GRAMS });
+    await addLogEntry({ date, meal, foodItemId, grams });
     setAddingMeal(null);
     setManualMode(false);
+    setPendingFood(null);
+    await reload();
+  }
+
+  function armUndo(snapshot: Omit<LogEntry, 'id'>) {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoEntry(snapshot);
+    undoTimer.current = setTimeout(() => setUndoEntry(null), UNDO_TIMEOUT_MS);
+  }
+
+  async function handleUndo() {
+    if (!undoEntry) return;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    await addLogEntry(undoEntry);
+    setUndoEntry(null);
     await reload();
   }
 
@@ -76,6 +103,7 @@ export default function DiaryPage() {
                 onClick={() => {
                   setAddingMeal(meal);
                   setManualMode(false);
+                  setPendingFood(null);
                 }}
                 className="py-3 -my-2 text-[14px] text-muted"
               >
@@ -96,6 +124,13 @@ export default function DiaryPage() {
                       mode={mode}
                       onDelete={async () => {
                         if (entry.id != null) {
+                          // Снимок до удаления — для undo (F3).
+                          armUndo({
+                            date: entry.date,
+                            meal: entry.meal,
+                            foodItemId: entry.foodItemId,
+                            grams: entry.grams,
+                          });
                           await deleteLogEntry(entry.id);
                           await reload();
                         }
@@ -114,34 +149,45 @@ export default function DiaryPage() {
 
             {addingMeal === meal && (
               <div className="mt-3 rounded-2xl border border-line p-4">
-                {manualMode ? (
-                  <ManualEntryForm
+                {pendingFood ? (
+                  // Шаг порции: грамм при выборе, явный «Добавить» (F3).
+                  <PortionStep
+                    food={pendingFood}
                     mode={mode}
-                    onSubmit={(food) => addFood(food, meal)}
+                    onConfirm={(grams) => addFood(pendingFood, meal, grams)}
+                    onBack={() => setPendingFood(null)}
+                  />
+                ) : manualMode ? (
+                  <ManualEntryForm
+                    onSubmit={(food) => setPendingFood(food)}
                     onCancel={() => setManualMode(false)}
                   />
                 ) : (
                   <SearchView
-                    mode={mode}
-                    onPick={(food) => addFood(food, meal)}
+                    onPick={(food) => setPendingFood(food)}
                     onManualAdd={() => setManualMode(true)}
                   />
                 )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddingMeal(null);
-                    setManualMode(false);
-                  }}
-                  className="mt-3 text-[14px] text-muted"
-                >
-                  Закрыть
-                </button>
+                {/* В шаге порции выход — через «Назад»; «Закрыть» не дублируем. */}
+                {!pendingFood && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddingMeal(null);
+                      setManualMode(false);
+                    }}
+                    className="mt-3 text-[14px] text-muted"
+                  >
+                    Закрыть
+                  </button>
+                )}
               </div>
             )}
           </section>
         ))}
       </div>
+
+      {undoEntry && <UndoSnackbar onUndo={handleUndo} />}
     </div>
   );
 }

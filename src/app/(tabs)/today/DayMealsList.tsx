@@ -16,7 +16,7 @@ interface Props {
 
 export function DayMealsList({ meals, mode }: Props) {
   return (
-    <section className="mt-8">
+    <section>
       <ul>
         {meals.map((m) => (
           <li

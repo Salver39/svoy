@@ -60,6 +60,8 @@ export interface UserProfile {
 export interface FoodItem {
   id?: number;
   name: string;
+  brand?: string; // бренд/марка отдельным полем (F2/F10): не клеим в name, чтобы
+  // UI мог отличить брендовое от generic. Не индексируется → без bump версии.
   caloriesPer100g: number;
   protein?: number;
   fat?: number;
@@ -132,4 +134,18 @@ export interface FollowupResponse {
   date: string; // ISO datetime
   gad2Score: number;
   selfRatedInfluence: number; // self-rated app influence «помогает/мешает»
+}
+
+// Интенсивность тренировки (F8, LOCKED-B). Только два уровня — не фитнес-трекер,
+// разные уровни дают разный дневной множитель зоны (lib/zone.ts).
+export type WorkoutIntensity = 'light' | 'strength';
+
+// Отметка тренировки на день (F8). СОЗНАТЕЛЬНО per-day и минимальна: только факт +
+// интенсивность, без длительности/«сожжено»/счётчиков (Anderberg 2025 — diet+fitness
+// токсичны; принцип 13 смягчён, не отменён). Поднимает дневную зону на Today, недельное
+// среднее НЕ трогает. Одна запись на календарный день.
+export interface WorkoutDay {
+  id?: number;
+  date: string; // ISO date 'YYYY-MM-DD'
+  intensity: WorkoutIntensity;
 }

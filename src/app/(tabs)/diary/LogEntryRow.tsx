@@ -1,17 +1,21 @@
 'use client';
 
 // Строка записи дневника (BACKLOG E3 AC #8-9).
-// Свёрнуто: название + калории (округлены до 25) + грамм + индикатор источника.
-// КБЖУ скрыты по умолчанию — раскрываются тапом. Правка грамм и удаление —
-// в один тап из самой записи, не из глубины меню.
+// numeric: название + калории (округлены до 25) + Б/Ж/У + грамм + источник.
+// F1 (решение A): КБЖУ показываются сразу, без раскрывашки. В soft числа в
+// списке записей скрыты (числа прячутся ПОСЛЕ логирования). Правка грамм и
+// удаление — в один тап из самой записи, не из глубины меню.
 
 import { useState } from 'react';
 import type { AppMode, FoodItem, LogEntry } from '@/db/schema';
 import { roundCalories } from '@/config/display';
+import { MacroGrams } from './MacroGrams';
+import { BrandTag } from './BrandTag';
 
+// Читаемая подпись источника (F10): «OFF» непонятно. Нейтрально, без оценки.
 const SOURCE_LABEL: Record<FoodItem['source'], string> = {
-  off: 'OFF',
-  custom: 'своё',
+  off: 'база продуктов',
+  custom: 'вручную',
 };
 
 export function LogEntryRow({
@@ -27,7 +31,6 @@ export function LogEntryRow({
   onDelete: () => void;
   onUpdateGrams: (grams: number) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [gramsDraft, setGramsDraft] = useState(String(entry.grams));
 
@@ -36,9 +39,6 @@ export function LogEntryRow({
   // Числа калорий/КБЖУ скрыты в мягком режиме (E5 AC #2). Запись без числа
   // (caloriesPer100g 0) тоже не показывает «0 ккал» в numeric.
   const showCalories = mode === 'numeric' && food.caloriesPer100g > 0;
-  const hasMacros =
-    showCalories &&
-    (food.protein != null || food.fat != null || food.carbs != null);
 
   function commitGrams() {
     const g = Number(gramsDraft);
@@ -49,11 +49,7 @@ export function LogEntryRow({
   return (
     <li className="rounded-xl border border-line bg-surface px-4 py-3">
       <div className="flex items-start justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => hasMacros && setExpanded((v) => !v)}
-          className="min-w-0 flex-1 text-left"
-        >
+        <div className="min-w-0 flex-1">
           <p className="truncate text-ink">{food.name}</p>
           <p className="mt-0.5 text-[14px] text-muted">
             {showCalories && <>{kcal} ккал · </>}
@@ -62,7 +58,23 @@ export function LogEntryRow({
               {SOURCE_LABEL[food.source]}
             </span>
           </p>
-        </button>
+          {/* Бренд отдельным чипом (F2/F10): раньше был вклеен в name. */}
+          {food.brand && (
+            <div className="mt-1">
+              <BrandTag brand={food.brand} />
+            </div>
+          )}
+          {/* F1: КБЖУ сразу в numeric, без раскрывашки. В soft скрыто. */}
+          {showCalories && (
+            <MacroGrams
+              protein={food.protein}
+              fat={food.fat}
+              carbs={food.carbs}
+              factor={factor}
+              className="mt-0.5 text-[12px] text-muted"
+            />
+          )}
+        </div>
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
@@ -102,30 +114,6 @@ export function LogEntryRow({
             Сохранить
           </button>
         </div>
-      )}
-
-      {/* КБЖУ скрыты по умолчанию (Eikey 2021); видны только при раскрытии. */}
-      {expanded && hasMacros && (
-        <dl className="mt-3 flex gap-4 text-[12px] text-muted">
-          {food.protein != null && (
-            <div>
-              <dt className="inline">Б </dt>
-              <dd className="inline">{Math.round(food.protein * factor)} г</dd>
-            </div>
-          )}
-          {food.fat != null && (
-            <div>
-              <dt className="inline">Ж </dt>
-              <dd className="inline">{Math.round(food.fat * factor)} г</dd>
-            </div>
-          )}
-          {food.carbs != null && (
-            <div>
-              <dt className="inline">У </dt>
-              <dd className="inline">{Math.round(food.carbs * factor)} г</dd>
-            </div>
-          )}
-        </dl>
       )}
     </li>
   );

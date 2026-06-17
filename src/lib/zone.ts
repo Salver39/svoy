@@ -11,7 +11,7 @@
 // тянет в дефицит — нижняя граница = TDEE, верхняя = TDEE+10%. Невидимо.
 
 import { RECOVERY_BMI_THRESHOLD, RECOVERY_SURPLUS } from '@/config/safety';
-import type { Sex, ActivityLevel, Zone } from '@/db/schema';
+import type { Sex, ActivityLevel, Zone, WorkoutIntensity } from '@/db/schema';
 
 // Коэффициенты активности Mifflin-St Jeor.
 const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
@@ -116,6 +116,23 @@ const PROXY_BMI = 21.7;
 export function proxyWeightFromHeight(heightCm: number): number {
   const m = heightCm / 100;
   return PROXY_BMI * m * m;
+}
+
+// F8 (LOCKED-B): тренировочный день поднимает дневную зону. Множители —
+// РАБОЧАЯ ГИПОТЕЗА, калибровать со специалистом (НЕ финальные значения). Это НЕ
+// burn-калькулятор: фиксированная дневная прибавка к диапазону, без «сожжено» и
+// без зависимости от длительности. Подъём только дневной (Today); недельное
+// среднее не трогаем. Для TDEE≈2150 это ≈ +170 / +320 ккал на день.
+export const WORKOUT_ZONE_MULTIPLIER: Record<WorkoutIntensity, number> = {
+  light: 1.08,
+  strength: 1.15,
+};
+
+/** Поднимает зону на тренировочный день по интенсивности. Множит обе границы —
+ *  диапазон сдвигается вверх целиком, ширина сохраняется. */
+export function raiseZoneForWorkout(zone: Zone, intensity: WorkoutIntensity): Zone {
+  const m = WORKOUT_ZONE_MULTIPLIER[intensity];
+  return { min: zone.min * m, max: zone.max * m };
 }
 
 /**

@@ -37,9 +37,11 @@ export default function OnboardingPage() {
   const triggered = screeningResult.triggered;
   const p = draft.profile;
 
-  // Зона для результата (только численный режим). Вес: введённый или proxy.
-  function computeResultZone(): Zone | null {
-    if (draft.mode !== 'numeric') return null;
+  // Зона из полей профиля. Считается ВСЕГДА — и в soft (F6): зона лежит в БД
+  // невидимо, чтобы переключение в numeric на Today было мгновенным и не зависело
+  // от пересчёта. В soft-UI она нигде не показывается. Вес: введённый или proxy.
+  // Null только если полей не хватает.
+  function computeProfileZone(): Zone | null {
     if (p.height === null || p.age === null || p.sex === null) return null;
     const weight = p.weight ?? proxyWeightFromHeight(p.height);
     return computeZone({
@@ -61,7 +63,7 @@ export default function OnboardingPage() {
     if (p.height === null || p.age === null || p.sex === null) return;
     setSaving(true);
 
-    const zone = computeResultZone() ?? undefined;
+    const zone = computeProfileZone() ?? undefined;
     const profile: UserProfile = {
       height: p.height,
       weight: p.weight,
@@ -117,7 +119,9 @@ export default function OnboardingPage() {
           mode={draft.mode}
           triggered={triggered}
           zoneLabel={(() => {
-            const z = computeResultZone();
+            // Лейбл зоны на результате — только в numeric (в soft число скрыто).
+            if (draft.mode !== 'numeric') return null;
+            const z = computeProfileZone();
             return z ? formatZone(z) : null;
           })()}
           saving={saving}

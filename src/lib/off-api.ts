@@ -38,11 +38,14 @@ function mapProduct(p: OffProduct): FoodItem | null {
   const kcal = p.nutriments?.['energy-kcal_100g'];
   if (!name || typeof kcal !== 'number' || Number.isNaN(kcal)) return null;
 
-  // OFF иногда присылает мусорный бренд ('undefined', пусто) — не клеим его.
+  // OFF иногда присылает мусорный бренд ('undefined', пусто) — отбрасываем.
+  // Бренд отдаём ОТДЕЛЬНЫМ полем (F2/F10), а не клеим в name: UI сам решает,
+  // как отличить брендовое от generic (чип/иконка), и не дублирует бренд в имени.
   const rawBrand = p.brands?.split(',')[0]?.trim();
   const brand = rawBrand && rawBrand.toLowerCase() !== 'undefined' ? rawBrand : undefined;
   return {
-    name: brand ? `${name} (${brand})` : name,
+    name,
+    brand,
     caloriesPer100g: kcal, // точное значение; округление — на отображении
     protein: p.nutriments?.proteins_100g,
     fat: p.nutriments?.fat_100g,
@@ -53,18 +56,63 @@ function mapProduct(p: OffProduct): FoodItem | null {
   };
 }
 
+/**
+ * Релевантность результата запросу (F5). Ранжируем ТОЛЬКО по совпадению с
+ * запросом и надёжности данных — НИКОГДА по калорийности/БЖУ (закон продукта 8:
+ * «меньше калорий = лучше» вернул бы фрейм «хорошая/плохая еда»).
+ *
+ * Шкала: точное имя > имя с запроса > слово с запроса > вхождение. Небольшие
+ * бусты: полные нутриенты (данные надёжнее) и generic без бренда (выше брендовых
+ * снеков — по эвристике наличия бренда, не по числам).
+ */
+function relevanceScore(item: FoodItem, query: string): number {
+  const name = item.name.toLowerCase();
+  let score = 0;
+  if (name === query) score += 100;
+  else if (name.startsWith(query)) score += 60;
+  // «слово начинается с запроса» — через токены (\b в JS не дружит с кириллицей).
+  else if (name.split(/[\s,()./-]+/).some((t) => t.startsWith(query))) score += 40;
+  else if (name.includes(query)) score += 20;
+
+  if (item.protein != null && item.fat != null && item.carbs != null) score += 5;
+  if (!item.brand) score += 3;
+  return score;
+}
+
+/** Стабильная сортировка по релевантности; равные сохраняют порядок OFF. */
+function rankByRelevance(items: FoodItem[], query: string): FoodItem[] {
+  const q = query.toLowerCase().trim();
+  return items
+    .map((item, i) => ({ item, i, score: relevanceScore(item, q) }))
+    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .map((x) => x.item);
+}
+
 // Ответ нашего прокси /api/off-search.
 type ProxyResponse =
   | { ok: true; products: OffProduct[] }
   | { ok: false; reason: 'upstream' | 'timeout' | 'network' };
 
-/** Поиск продуктов по строке. Спокойные исходы вместо исключений. */
-export async function searchFoods(query: string): Promise<SearchOutcome> {
+/**
+ * Поиск продуктов по строке. Спокойные исходы вместо исключений.
+ * `signal` (F4): живой поиск отменяет предыдущий запрос при новом вводе —
+ * внешний сигнал прокидываем в тот же контроллер, что и таймаут.
+ */
+export async function searchFoods(
+  query: string,
+  options?: { signal?: AbortSignal },
+): Promise<SearchOutcome> {
   const q = query.trim();
   if (!q) return { kind: 'empty' };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  // Внешняя отмена (новый ввод вытеснил этот запрос) → прерываем тот же fetch.
+  const external = options?.signal;
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener('abort', () => controller.abort(), { once: true });
+  }
 
   try {
     const res = await fetch(`${SEARCH_PROXY_URL}?q=${encodeURIComponent(q)}`, {
@@ -79,9 +127,10 @@ export async function searchFoods(query: string): Promise<SearchOutcome> {
       return { kind: 'offline' };
     }
 
-    const items = data.products
-      .map(mapProduct)
-      .filter((x): x is FoodItem => x !== null);
+    const items = rankByRelevance(
+      data.products.map(mapProduct).filter((x): x is FoodItem => x !== null),
+      q,
+    );
 
     return items.length > 0 ? { kind: 'ok', items } : { kind: 'empty' };
   } catch (err) {

@@ -12,6 +12,7 @@ import type {
   AppOpenEvent,
   ModeSwitch,
   FollowupResponse,
+  WorkoutDay,
 } from './schema';
 
 export class NimbDB extends Dexie {
@@ -24,6 +25,7 @@ export class NimbDB extends Dexie {
   appOpenEvents!: Table<AppOpenEvent, number>;
   modeSwitches!: Table<ModeSwitch, number>;
   followupResponses!: Table<FollowupResponse, number>;
+  workoutDays!: Table<WorkoutDay, number>;
 
   constructor() {
     super('nimb-db');
@@ -80,6 +82,23 @@ export class NimbDB extends Dexie {
       appOpenEvents: '++id, date',
       modeSwitches: '++id, date',
       followupResponses: '++id, date',
+    });
+
+    // Версия 4 — F8: отметка тренировки на день (поднимает дневную зону). Новая
+    // таблица workoutDays, аддитивно — upgrade-колбэк не нужен (существующие данные
+    // не трогаем; на пустой/старой БД таблица просто появляется). Индекс по date —
+    // одна запись на день обеспечивается логикой в lib/workout.ts (find→update|add).
+    this.version(4).stores({
+      userProfile: '++id',
+      foodItems: '++id, name, barcode, offId',
+      logEntries: '++id, date, meal, foodItemId, [date+meal]',
+      moodCheckIns: '++id, date',
+      softStateCheckIns: '++id, date',
+      nudgeState: '++id',
+      appOpenEvents: '++id, date',
+      modeSwitches: '++id, date',
+      followupResponses: '++id, date',
+      workoutDays: '++id, date',
     });
   }
 }

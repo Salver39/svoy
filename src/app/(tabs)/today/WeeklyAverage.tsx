@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import type { AppMode, Zone } from '@/db/schema';
 import { roundCalories } from '@/config/display';
 import { zonePosition } from '@/lib/weekly-average';
+import { WORKOUT_NOTE_NUMERIC, WORKOUT_NOTE_SOFT } from '@/content/workout';
 
 const SHOW_NUMBER_KEY = 'nimb.showWeeklyNumber';
 
@@ -18,9 +19,10 @@ interface Props {
   average: number | null;
   daysWithData: number;
   mode: AppMode;
+  workoutActive?: boolean; // F8: сегодня отмечена тренировка → зона поднята
 }
 
-export function WeeklyAverage({ zone, average, daysWithData, mode }: Props) {
+export function WeeklyAverage({ zone, average, daysWithData, mode, workoutActive }: Props) {
   const [showNumber, setShowNumber] = useState(false);
 
   useEffect(() => {
@@ -42,6 +44,10 @@ export function WeeklyAverage({ zone, average, daysWithData, mode }: Props) {
         <p className="mt-2 font-display text-[28px] leading-tight text-ink">
           ты в своём ритме
         </p>
+        {/* F8: в soft чисел нет → подъём нормы передаёт только эта строка (заглушка). */}
+        {workoutActive && (
+          <p className="mt-3 text-[12.5px] leading-snug text-muted">{WORKOUT_NOTE_SOFT}</p>
+        )}
         <p className="mt-3 max-w-[300px] text-[12.5px] leading-snug text-muted">
           здесь только то, что записано — не обязательно вся еда
         </p>
@@ -71,6 +77,11 @@ export function WeeklyAverage({ zone, average, daysWithData, mode }: Props) {
         {roundCalories(zone.min)}–{roundCalories(zone.max)}
         <span className="font-sans text-[16px] font-normal text-muted">ккал</span>
       </p>
+
+      {/* F8: поясняем, почему сегодня диапазон выше (заглушка SAFETY-3). */}
+      {workoutActive && (
+        <p className="mt-2 text-[12.5px] leading-snug text-muted">{WORKOUT_NOTE_NUMERIC}</p>
+      )}
 
       {/* Полоса зоны + нейтральный маркер среднего. Никакого цвета-сигнала. */}
       <div className="mt-5 max-w-[300px]">
