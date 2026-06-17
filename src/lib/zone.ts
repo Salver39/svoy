@@ -118,21 +118,28 @@ export function proxyWeightFromHeight(heightCm: number): number {
   return PROXY_BMI * m * m;
 }
 
-// F8 (LOCKED-B): тренировочный день поднимает дневную зону. Множители —
-// РАБОЧАЯ ГИПОТЕЗА, калибровать со специалистом (НЕ финальные значения). Это НЕ
-// burn-калькулятор: фиксированная дневная прибавка к диапазону, без «сожжено» и
-// без зависимости от длительности. Подъём только дневной (Today); недельное
-// среднее не трогаем. Для TDEE≈2150 это ≈ +170 / +320 ккал на день.
+// F8 (LOCKED-B): день с активностью поднимает дневную зону. Множители
+// подтверждены диетологом (R1, 2026-06-17) как консервативные. Это НЕ
+// burn-калькулятор: фиксированная дневная прибавка к диапазону, без «сожжено».
+// Подъём только дневной (Today); недельное среднее не трогаем.
 export const WORKOUT_ZONE_MULTIPLIER: Record<WorkoutIntensity, number> = {
   light: 1.08,
   strength: 1.15,
 };
 
-/** Поднимает зону на тренировочный день по интенсивности. Множит обе границы —
- *  диапазон сдвигается вверх целиком, ширина сохраняется. */
+// Потолок прибавки (диетолог R1): +300 ккал ИЛИ +15%, что МЕНЬШЕ — защищает
+// пользователей с очень высоким TDEE от чрезмерного подъёма.
+const WORKOUT_RAISE_CAP_KCAL = 300;
+const WORKOUT_RAISE_CAP_PCT = 0.15;
+
+/** Поднимает зону на день с активностью по интенсивности. Прибавка к каждой
+ *  границе ограничена потолком (диетолог). Для recovery-зоны (недовес) это
+ *  всегда подъём вверх — защита не ослабляется (C4 диетолога). */
 export function raiseZoneForWorkout(zone: Zone, intensity: WorkoutIntensity): Zone {
   const m = WORKOUT_ZONE_MULTIPLIER[intensity];
-  return { min: zone.min * m, max: zone.max * m };
+  const raise = (b: number) =>
+    b + Math.min(b * (m - 1), WORKOUT_RAISE_CAP_KCAL, b * WORKOUT_RAISE_CAP_PCT);
+  return { min: raise(zone.min), max: raise(zone.max) };
 }
 
 /**
