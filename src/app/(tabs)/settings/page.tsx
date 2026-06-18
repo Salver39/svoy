@@ -4,7 +4,7 @@
 
 import { ResourcesCard } from '@/components/ResourcesCard';
 import { ExportButton } from './ExportButton';
-import { MEDICAL_DISCLAIMER } from '@/content/legal';
+import { MEDICAL_DISCLAIMER, DATA_ATTRIBUTION } from '@/content/legal';
 
 export default function SettingsPage() {
   return (
@@ -26,6 +26,30 @@ export default function SettingsPage() {
         <div className="mt-3">
           <ExportButton />
         </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-[13px] text-muted">Источник данных</h2>
+        <p className="mt-2 text-[14px] leading-snug text-muted">
+          {DATA_ATTRIBUTION.text}{' '}
+          <a
+            href={DATA_ATTRIBUTION.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Open Food Facts
+          </a>
+          {' · '}
+          <a
+            href={DATA_ATTRIBUTION.licenseUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            ODbL
+          </a>
+        </p>
       </section>
 
       <p className="mt-10 text-[12px] leading-snug text-muted">{MEDICAL_DISCLAIMER}</p>

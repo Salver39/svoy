@@ -1,0 +1,30 @@
+# fly.toml app configuration file generated for svoy-search on 2026-06-18T16:14:40+03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'svoy-search'
+primary_region = 'fra'
+
+[build]
+  image = 'getmeili/meilisearch:v1.11'
+
+[env]
+  MEILI_ENV = 'production'
+
+[[mounts]]
+  source = 'meili_data'
+  destination = '/meili_data'
+
+[http_service]
+  internal_port = 7700
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
+  cpus = 1
+  memory_mb = 512

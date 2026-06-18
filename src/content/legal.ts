@@ -13,3 +13,13 @@ export const MEDICAL_DISCLAIMER =
   'Оно не является медицинским изделием, не предназначено для диагностики, ' +
   'лечения, мониторинга или профилактики заболеваний и не заменяет консультацию ' +
   'врача или другого специалиста.';
+
+// Атрибуция источника данных о продуктах. Open Food Facts распространяется под
+// Open Database License (ODbL) — лицензия ТРЕБУЕТ указания источника и лицензии.
+// Используется и при поиске через публичный API OFF, и при поиске по нашему
+// индексу (он построен из того же датасета OFF). Показывается в настройках.
+export const DATA_ATTRIBUTION = {
+  text: 'Данные о продуктах — из Open Food Facts, под лицензией Open Database License (ODbL).',
+  sourceUrl: 'https://openfoodfacts.org',
+  licenseUrl: 'https://opendatacommons.org/licenses/odbl/1-0/',
+};

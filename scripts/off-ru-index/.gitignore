@@ -1,0 +1,3 @@
+# build-артефакты ETL (регенерируются extract.sh; не коммитим)
+off.csv.gz
+ru-docs.json

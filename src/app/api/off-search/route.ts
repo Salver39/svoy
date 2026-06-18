@@ -49,6 +49,66 @@ const CACHE_MAX = 200; // потолок записей (FIFO-вытеснени
 // (минимизация данных). URL приложения — публичный, не PII.
 const USER_AGENT = 'Svoy/0.1 (pilot; https://svoy-salver39s-projects.vercel.app)';
 
+// --- Свой индекс (Meilisearch, RU-срез OFF) как ОСНОВНОЙ источник ---
+// Настраивается env: MEILI_URL + MEILI_SEARCH_KEY (search-only). Если не заданы —
+// поведение прежнее (только OFF). Хиты индекса отдаём в форме OFF-продукта, чтобы
+// клиентский маппер (lib/off-api.ts) не менялся. Сбой/таймаут/0-хитов → фолбэк на OFF.
+const MEILI_URL = process.env.MEILI_URL?.replace(/\/$/, '');
+const MEILI_SEARCH_KEY = process.env.MEILI_SEARCH_KEY;
+const MEILI_INDEX = 'off_ru';
+const MEILI_TIMEOUT_MS = 3000;
+
+interface MeiliHit {
+  code?: string;
+  name?: string;
+  brand?: string | null;
+  caloriesPer100g?: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
+}
+
+// Хит индекса → форма OFF-продукта (product_name/brands/nutriments), которую уже
+// маппит клиент. Так подключение индекса не трогает lib/off-api.ts.
+function indexHitToOffProduct(h: MeiliHit) {
+  return {
+    code: h.code,
+    product_name: h.name,
+    brands: h.brand ?? undefined,
+    nutriments: {
+      'energy-kcal_100g': h.caloriesPer100g,
+      proteins_100g: h.protein,
+      fat_100g: h.fat,
+      carbohydrates_100g: h.carbs,
+    },
+  };
+}
+
+// Поиск в своём индексе. null = индекс не настроен / сбой / таймаут → фолбэк на OFF.
+async function searchIndex(q: string): Promise<unknown[] | null> {
+  if (!MEILI_URL || !MEILI_SEARCH_KEY) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), MEILI_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${MEILI_URL}/indexes/${MEILI_INDEX}/search`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${MEILI_SEARCH_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ q, limit: PAGE_SIZE }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { hits?: MeiliHit[] };
+    return (data.hits ?? []).map(indexHitToOffProduct);
+  } catch {
+    return null; // сбой индекса не должен ломать поиск — уходим на OFF
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // --- Кэш (module-scope, общий для тёплого serverless-инстанса) ---
 interface CacheEntry {
   products: unknown[];
@@ -103,6 +163,13 @@ export async function GET(request: NextRequest) {
   if (!q) return Response.json({ ok: true, products: [] });
 
   const key = q.toLowerCase();
+
+  // ОСНОВНОЙ источник — свой индекс (RU-срез OFF): быстро, без зависимости от OFF.
+  // Есть хиты → отдаём. Пусто (нет в RU-срезе) или сбой → фолбэк на публичный OFF.
+  const indexHits = await searchIndex(q);
+  if (indexHits && indexHits.length > 0) {
+    return Response.json({ ok: true, products: indexHits, source: 'index' });
+  }
 
   // Свежий кэш — мгновенный ответ, без запроса к OFF.
   const fresh = cacheGet(key);
