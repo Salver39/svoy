@@ -4,7 +4,11 @@
 # Зависимости: duckdb, curl. Результат: ru-docs.json (JSON-массив для импорта).
 #
 # RU-релевантность: product_name содержит кириллицу ИЛИ countries_tags ⊇ en:russia;
-# и есть валидный energy-kcal_100g. Форма совпадает с тем, что маппит lib/off-api.ts.
+# и есть валидный energy-kcal_100g в правдоподобном диапазоне (0 < kcal ≤ 1000).
+# Верхняя отсечка убирает грубый мусор OFF (ккал перепутаны с кДж / внесено «на
+# упаковку»): физ. максимум для еды ≈900 ккал/100г (чистый жир), порог 1000 — с
+# запасом, чтобы не резать рафинированные масла у самой границы. Форма совпадает
+# с тем, что маппит lib/off-api.ts.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -32,6 +36,7 @@ COPY (
   FROM read_csv('$CSV', delim='\t', header=true, quote='', ignore_errors=true, all_varchar=true)
   WHERE (regexp_matches(product_name,'[А-Яа-яЁё]') OR countries_tags LIKE '%en:russia%')
     AND try_cast(\"energy-kcal_100g\" AS DOUBLE) > 0
+    AND try_cast(\"energy-kcal_100g\" AS DOUBLE) <= 1000
     AND length(trim(product_name)) > 0
 ) TO '$OUT' (FORMAT json, ARRAY true);
 "
