@@ -95,8 +95,10 @@ export default function DiaryPage() {
 
   const grouped = groupByMeal(entries);
 
+  // pb-32: запас под плавающую кнопку «тревожно» (fixed bottom-20, ~118px),
+  // чтобы последний приём («Перекус») проскролливался над ней и был кликабелен.
   return (
-    <div className="mx-auto max-w-md px-6 pb-8 pt-8">
+    <div className="mx-auto max-w-md px-6 pb-32 pt-8">
       <h1 className="text-[22px] font-semibold text-ink">Дневник</h1>
       <p className="mt-1 text-[14px] text-muted">сегодня</p>
 

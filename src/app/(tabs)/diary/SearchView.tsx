@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { FoodItem } from '@/db/schema';
-import { searchFoods, type SearchOutcome } from '@/lib/off-api';
+import { searchCustomFoods, searchFoods, type SearchOutcome } from '@/lib/off-api';
 import { roundCalories } from '@/config/display';
 import { MacroGrams } from './MacroGrams';
 import { BrandTag } from './BrandTag';
@@ -31,9 +31,27 @@ export function SearchView({
 }) {
   const [query, setQuery] = useState('');
   const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
+  const [custom, setCustom] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const reqIdRef = useRef(0);
+
+  // Свои продукты — локальный мгновенный поиск (без debounce, без сети). Показываем
+  // их над результатами OFF, даже если OFF пуст/оффлайн.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < MIN_CHARS) {
+      setCustom([]);
+      return;
+    }
+    let active = true;
+    searchCustomFoods(q).then((items) => {
+      if (active) setCustom(items);
+    });
+    return () => {
+      active = false;
+    };
+  }, [query]);
 
   useEffect(() => {
     const q = query.trim();
@@ -74,6 +92,38 @@ export function SearchView({
       />
 
       <div className="mt-4">
+        {/* Свои продукты сверху (F: сохранять своё). Видны независимо от исхода OFF. */}
+        {custom.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-2 text-[12px] uppercase tracking-[0.07em] text-muted">свои</p>
+            <ul className="flex flex-col gap-2">
+              {custom.map((food) => (
+                <li key={food.id}>
+                  <button
+                    type="button"
+                    onClick={() => onPick(food)}
+                    className="w-full rounded-xl border border-line bg-surface px-4 py-3
+                               text-left hover:border-muted"
+                  >
+                    <p className="truncate text-ink">
+                      {food.name}
+                      <span className="ml-2 rounded bg-raised px-1.5 py-0.5 text-[12px] text-muted">
+                        вручную
+                      </span>
+                    </p>
+                    {/* ккал/100 г скрыто, если не указано (sentinel 0). */}
+                    {food.caloriesPer100g > 0 && (
+                      <p className="mt-1 text-[14px] text-muted">
+                        {roundCalories(food.caloriesPer100g)} ккал / 100 г
+                      </p>
+                    )}
+                    <MacroGrams protein={food.protein} fat={food.fat} carbs={food.carbs} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {loading && outcome == null && (
           <p className="text-[14px] text-muted">…</p>
         )}

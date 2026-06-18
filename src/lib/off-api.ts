@@ -147,10 +147,19 @@ export async function searchFoods(
   }
 }
 
+/** Нормализация имени для дедупа/поиска custom-продуктов (регистр + пробелы). */
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
 /**
  * Сохраняет FoodItem в кэш Dexie. Дедуп по offId: если продукт уже есть,
- * возвращает его id, не дублируя. Для custom-продуктов offId отсутствует —
- * они всегда добавляются как новые.
+ * возвращает его id, не дублируя.
+ *
+ * Custom-продукты (offId нет) дедупим по нормализованному имени (владелец
+ * 2026-06-18): «свои» сохраняются и переиспользуются при повторном добавлении,
+ * список не плодит дубли. Повторное добавление одноимённого продукта
+ * ПЕРЕЗАПИСЫВАЕТ КБЖУ существующей строки — это и есть «правка своего».
  */
 export async function cacheFoodItem(item: FoodItem): Promise<number> {
   const db = getDB();
@@ -158,5 +167,36 @@ export async function cacheFoodItem(item: FoodItem): Promise<number> {
     const existing = await db.foodItems.where('offId').equals(item.offId).first();
     if (existing?.id) return existing.id;
   }
+  if (item.source === 'custom') {
+    const norm = normalizeName(item.name);
+    // source не индексируется → фильтруем в памяти (как в lib/export.ts).
+    const existing = await db.foodItems
+      .filter((f) => f.source === 'custom' && normalizeName(f.name) === norm)
+      .first();
+    if (existing?.id) {
+      await db.foodItems.update(existing.id, {
+        caloriesPer100g: item.caloriesPer100g,
+        protein: item.protein,
+        fat: item.fat,
+        carbs: item.carbs,
+      });
+      return existing.id;
+    }
+  }
   return db.foodItems.add(item);
+}
+
+/**
+ * Поиск среди ранее добавленных СВОИХ продуктов (source='custom') по подстроке
+ * имени. Локальный и мгновенный — показывается в SearchView над результатами OFF,
+ * чтобы «своё» не пришлось вводить заново. Ранжируем тем же relevanceScore.
+ */
+export async function searchCustomFoods(query: string): Promise<FoodItem[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const db = getDB();
+  const matches = await db.foodItems
+    .filter((f) => f.source === 'custom' && f.name.toLowerCase().includes(q))
+    .toArray();
+  return rankByRelevance(matches, q);
 }

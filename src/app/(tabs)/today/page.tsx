@@ -83,8 +83,9 @@ export default function TodayPage() {
 
   const workoutActive = workout != null;
 
+  // pb-32: тот же запас под плавающую «тревожно», что и в Дневнике.
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col px-6 pb-8 pt-8">
+    <div className="mx-auto flex min-h-full max-w-md flex-col px-6 pb-32 pt-8">
       {/* Шапка: «итоги недели» (слева) балансирует переключатель режима (справа).
           F7: отдельного «Сегодня» в шапке нет — блоки ниже подписаны явно. */}
       <header className="mb-8 flex items-center justify-between">

@@ -4,6 +4,11 @@
 // за день (owner 2026-06-17): пропорция «состава записанного», сумма = 100%. БЕЗ
 // нормы-референса (это была бы скрытая цель — handoff §6 отложил отдельным safety-
 // вопросом). Ноль красного/зелёного. Скрыто, пока нет ни одного макроса.
+//
+// Подпись «за сегодня» обязательна: шкала рендерится сразу под блоком
+// WeeklyAverage («за эту неделю») и без неё читается как недельная (фидбэк
+// 2026-06-18). Владелец: оба режима — за день; numeric DailyMacros уже подписан
+// «г за сегодня», soft теперь симметрично.
 
 import type { DayMacros } from '@/lib/day-macros';
 import { hasMacros } from '@/lib/day-macros';
@@ -19,11 +24,10 @@ export function MacroScale({ macros }: { macros: DayMacros }) {
   const total = macros.protein + macros.fat + macros.carbs;
 
   return (
-    <section
-      className="mt-5 flex max-w-[300px] flex-col gap-2.5"
-      aria-label="состав записанного за день"
-    >
-      {ROWS.map(({ key, label }) => {
+    <section className="mt-5 max-w-[300px]" aria-label="состав записанного за сегодня">
+      <p className="mb-3 text-[13px] text-muted">за сегодня</p>
+      <div className="flex flex-col gap-2.5">
+        {ROWS.map(({ key, label }) => {
         const pct = total > 0 ? (macros[key] / total) * 100 : 0;
         return (
           <div key={key} className="flex items-center gap-2.5">
@@ -36,8 +40,9 @@ export function MacroScale({ macros }: { macros: DayMacros }) {
               />
             </span>
           </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </section>
   );
 }
