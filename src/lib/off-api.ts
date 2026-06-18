@@ -11,7 +11,9 @@ import { getDB } from '@/db/client';
 import type { FoodItem } from '@/db/schema';
 
 const SEARCH_PROXY_URL = '/api/off-search';
-const REQUEST_TIMEOUT_MS = 9000; // чуть больше серверного, чтобы прокси успел ответить
+// > серверного дедлайна (route.ts TOTAL_DEADLINE_MS=8с) с запасом: прокси всегда
+// отвечает ПЕРВЫМ, клиент получает спокойный исход, а не свой abort (2026-06-18).
+const REQUEST_TIMEOUT_MS = 10000;
 
 // Сырой продукт OFF — берём только нужные поля.
 interface OffProduct {
