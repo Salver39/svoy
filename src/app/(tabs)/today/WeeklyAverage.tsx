@@ -15,6 +15,10 @@ import { zonePosition } from '@/lib/weekly-average';
 import { WORKOUT_NOTE_NUMERIC, WORKOUT_NOTE_SOFT } from '@/content/workout';
 import { ZoneInfoIcon } from './ZoneInfoIcon';
 
+// Сколько дней с данными нужно, чтобы недельная шкала-маркер появилась. До этого —
+// спокойный плейсхолдер (фидбэк 2026-06-19: маркер на 1-м дне прижат к краю зоны).
+const MIN_DAYS_FOR_SCALE = 3;
+
 interface Props {
   zone?: Zone;
   average: number | null;
@@ -49,8 +53,12 @@ export function WeeklyAverage({ zone, average, daysWithData, mode, workoutActive
     );
   }
 
-  const hasData = average != null && daysWithData > 0;
-  const pos = hasData ? zonePosition(average as number, zone) : null;
+  // Недельная шкала появляется не сразу (фидбэк 2026-06-19): в первые дни среднее
+  // считается по 1–2 дням и маркер прижимается к краю зоны — читается как «ты в
+  // самом низу», тревожно и противоречит принципу 4 (неделя важнее дня). Полосу с
+  // маркером показываем только когда неделя реально набралась (≥ MIN_DAYS).
+  const enoughForScale = average != null && daysWithData >= MIN_DAYS_FOR_SCALE;
+  const pos = enoughForScale ? zonePosition(average as number, zone) : null;
 
   return (
     <section className="mt-1">
@@ -67,21 +75,22 @@ export function WeeklyAverage({ zone, average, daysWithData, mode, workoutActive
         <span className="font-sans text-[16px] font-normal text-muted">ккал</span>
       </p>
 
-      {/* Полоса зоны + нейтральный маркер недельного среднего. Никакого цвета-сигнала. */}
-      <div className="mt-5 max-w-[300px]">
-        <div className="relative h-1.5 rounded-full bg-surface">
-          {pos != null && (
+      {/* Полоса зоны + нейтральный маркер недельного среднего. Никакого цвета-сигнала.
+          До MIN_DAYS — спокойный плейсхолдер вместо шкалы (см. выше). */}
+      {enoughForScale ? (
+        <div className="mt-5 max-w-[300px]">
+          <div className="relative h-1.5 rounded-full bg-surface">
             <span
               className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted ring-2 ring-bg"
-              style={{ left: `${pos * 100}%` }}
+              style={{ left: `${(pos as number) * 100}%` }}
               aria-hidden="true"
             />
-          )}
+          </div>
+          <p className="mt-2 text-[12px] text-muted">точка — среднее за неделю в твоей зоне</p>
         </div>
-        <p className="mt-2 text-[12px] text-muted">
-          {hasData ? 'точка — среднее за неделю в твоей зоне' : 'за неделю пока нет записей'}
-        </p>
-      </div>
+      ) : (
+        <p className="mt-5 text-[12px] text-muted">неделя ещё набирается</p>
+      )}
     </section>
   );
 }

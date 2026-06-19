@@ -20,6 +20,17 @@ export function isFutureDate(dateISO: string): boolean {
   return dateISO > todayISO();
 }
 
+/** Сдвигает дату 'YYYY-MM-DD' на delta дней (локально, без UTC-сдвига). */
+export function shiftDateISO(dateISO: string, delta: number): string {
+  const [y, m, d] = dateISO.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + delta);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
 export class FutureDateError extends Error {
   constructor() {
     super('Логирование в будущие даты запрещено.');

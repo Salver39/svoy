@@ -19,6 +19,7 @@ import { getEntriesForDate, todayISO } from '@/lib/log-entry';
 import { getWeeklySummary, type WeeklySummary } from '@/lib/weekly-average';
 import { summarizeDay, type MealSummary } from '@/lib/day-meals';
 import { summarizeDayMacros, type DayMacros } from '@/lib/day-macros';
+import { macroCuesForDay, type MacroCue } from '@/lib/macro-cues';
 import { raiseZoneForWorkout } from '@/lib/zone';
 import { getWorkoutForDate } from '@/lib/workout';
 import { cycleNoteForWeek } from '@/content/cycle-note';
@@ -46,6 +47,7 @@ export default function TodayPage() {
   });
   const [meals, setMeals] = useState<MealSummary[]>([]);
   const [dayMacros, setDayMacros] = useState<DayMacros>(EMPTY_MACROS);
+  const [dayCues, setDayCues] = useState<MacroCue[]>([]);
   const [checkInDue, setCheckInDue] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   // F8: интенсивность активности на сегодня (или null). Поднимает дневную зону.
@@ -74,6 +76,7 @@ export default function TodayPage() {
       });
       setMeals(summarizeDay(entries, map));
       setDayMacros(summarizeDayMacros(entries, map));
+      setDayCues(macroCuesForDay(entries, map));
     })();
   }, []);
 
@@ -121,7 +124,7 @@ export default function TodayPage() {
       {/* Б/Ж/У за день под шкалой: numeric — числами, soft — шкалой-пропорцией.
           Оба скрываются сами, пока за день нет ни одного макроса. */}
       {mode === 'numeric' ? (
-        <DailyMacros macros={dayMacros} />
+        <DailyMacros macros={dayMacros} cues={dayCues} />
       ) : (
         <MacroScale macros={dayMacros} />
       )}

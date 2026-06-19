@@ -6,6 +6,7 @@
 
 import type { Sex, ActivitySignal, AppMode } from '@/db/schema';
 import type { ProfileDraft } from './types';
+import { ACTIVITY_COPY, ACTIVITY_ORDER } from '@/content/activity';
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'female', label: 'Женский' },
@@ -13,12 +14,7 @@ const SEX_OPTIONS: { value: Sex; label: string }[] = [
 ];
 
 // Образ жизни — СИГНАЛ о человеке, НЕ влияет на расчёт зоны (R1). Сами тренировки
-// учитываются per-day на Today (F8), поэтому здесь — только частота активности.
-const ACTIVITY_OPTIONS: { value: ActivitySignal; label: string }[] = [
-  { value: 'none', label: 'Почти нет' },
-  { value: 'sometimes', label: 'Иногда' },
-  { value: 'regular', label: 'Регулярно' },
-];
+// учитываются per-day на Today (F8). Тексты уровней — в content/activity.ts.
 
 function NumberField({
   label,
@@ -133,21 +129,34 @@ export function ProfileStep({
         </div>
       </fieldset>
 
-      <label className="mt-6 block">
-        <span className="text-[14px] text-muted">Физическая активность</span>
-        <select
-          value={draft.activity}
-          onChange={(e) => set({ activity: e.target.value as ActivitySignal })}
-          className="mt-2 w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink
-                     focus:border-accent focus:outline-none"
-        >
-          {ACTIVITY_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset className="mt-6">
+        <legend className="text-[14px] text-muted">Физическая активность</legend>
+        <div className="mt-2 flex flex-col gap-2">
+          {ACTIVITY_ORDER.map((value) => {
+            const { label, hint } = ACTIVITY_COPY[value];
+            const selected = draft.activity === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => set({ activity: value })}
+                aria-pressed={selected}
+                className={`rounded-xl border px-4 py-3 text-left transition-colors
+                  ${
+                    selected
+                      ? 'border-accent bg-raised'
+                      : 'border-line bg-surface'
+                  }`}
+              >
+                <span className={`block text-[14px] ${selected ? 'text-ink' : 'text-muted'}`}>
+                  {label}
+                </span>
+                <span className="mt-0.5 block text-[12px] text-muted">{hint}</span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
 
       <div className="mt-8 flex gap-3">
         <button

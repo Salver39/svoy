@@ -22,12 +22,14 @@ export function LogEntryRow({
   entry,
   food,
   mode,
+  readOnly,
   onDelete,
   onUpdateGrams,
 }: {
   entry: LogEntry;
   food: FoodItem;
   mode: AppMode;
+  readOnly?: boolean; // прошлые дни — только просмотр (фидбэк 2026-06-19)
   onDelete: () => void;
   onUpdateGrams: (grams: number) => void;
 }) {
@@ -75,27 +77,29 @@ export function LogEntryRow({
             />
           )}
         </div>
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => setEditing((v) => !v)}
-            aria-label="Изменить количество"
-            className="text-[14px] text-muted"
-          >
-            Правка
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            aria-label="Удалить запись"
-            className="text-[14px] text-muted"
-          >
-            Удалить
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              aria-label="Изменить количество"
+              className="text-[14px] text-muted"
+            >
+              Правка
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="Удалить запись"
+              className="text-[14px] text-muted"
+            >
+              Удалить
+            </button>
+          </div>
+        )}
       </div>
 
-      {editing && (
+      {!readOnly && editing && (
         <div className="mt-3 flex items-center gap-2">
           <input
             type="number"

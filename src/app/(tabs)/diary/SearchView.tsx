@@ -79,6 +79,15 @@ export function SearchView({
     return () => clearTimeout(handle); // новый ввод — сбрасываем debounce
   }, [query]);
 
+  // Постоянная ссылка ручного ввода (фидбэк 2026-06-19): раньше «Добавить
+  // вручную» жила ТОЛЬКО в пустом/оффлайн-состоянии — чтобы добавить своё,
+  // приходилось вбивать несуществующее слово. Теперь ссылка видна всегда, кроме
+  // случаев, когда empty/offline/error уже рендерят свою CTA (не задваиваем).
+  const emptyStateShown =
+    outcome?.kind === 'empty' ||
+    outcome?.kind === 'offline' ||
+    outcome?.kind === 'error';
+
   return (
     <div>
       <input
@@ -90,6 +99,16 @@ export function SearchView({
         className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink
                    placeholder:text-muted focus:border-accent focus:outline-none"
       />
+
+      {!emptyStateShown && (
+        <button
+          type="button"
+          onClick={onManualAdd}
+          className="mt-3 text-[14px] text-muted underline decoration-line underline-offset-2"
+        >
+          Добавить вручную
+        </button>
+      )}
 
       <div className="mt-4">
         {/* Свои продукты сверху (F: сохранять своё). Видны независимо от исхода OFF. */}

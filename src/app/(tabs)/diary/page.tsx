@@ -26,11 +26,15 @@ import { SearchView } from './SearchView';
 import { ManualEntryForm } from './ManualEntryForm';
 import { PortionStep } from './PortionStep';
 import { UndoSnackbar } from './UndoSnackbar';
+import { DateStepper } from './DateStepper';
 
 const UNDO_TIMEOUT_MS = 6000;
 
 export default function DiaryPage() {
-  const date = todayISO();
+  // Дата дневника. Прошлые дни — только просмотр (фидбэк 2026-06-19); добавление,
+  // правка, удаление и отметка активности доступны лишь за сегодня.
+  const [date, setDate] = useState<string>(todayISO());
+  const readOnly = date !== todayISO();
   const { mode } = useAppMode(); // soft → числа калорий скрыты на всех экранах
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [foods, setFoods] = useState<Map<number, FoodItem>>(new Map());
@@ -100,19 +104,33 @@ export default function DiaryPage() {
   return (
     <div className="mx-auto max-w-md px-6 pb-32 pt-8">
       <h1 className="text-[22px] font-semibold text-ink">Дневник</h1>
-      <p className="mt-1 text-[14px] text-muted">сегодня</p>
+      <DateStepper
+        date={date}
+        onChange={(next) => {
+          // Смена дня: сбрасываем открытую форму добавления, чтобы не висела на
+          // другой дате.
+          setAddingMeal(null);
+          setManualMode(false);
+          setPendingFood(null);
+          setDate(next);
+        }}
+      />
 
       {/* F8 (R2): отметка активности сверху Дневника. Поднимает дневную зону на
-          Today; здесь — единственное место контрола. Разовая, лок на день. */}
-      <div className="mt-6">
-        <ActivityMark
-          intensity={workout}
-          onChange={async (next) => {
-            await setWorkoutForDate(date, next);
-            setWorkout(next);
-          }}
-        />
-      </div>
+          Today; здесь — единственное место контрола. Разовая, лок на день.
+          Только за сегодня — прошлые дни read-only (отметка задним числом ничего
+          не меняет для Today-зоны). */}
+      {!readOnly && (
+        <div className="mt-6">
+          <ActivityMark
+            intensity={workout}
+            onChange={async (next) => {
+              await setWorkoutForDate(date, next);
+              setWorkout(next);
+            }}
+          />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col gap-6">
         {MEALS.map((meal) => (
@@ -121,17 +139,20 @@ export default function DiaryPage() {
               <h2 className="text-[16px] font-medium text-ink">
                 {MEAL_LABEL[meal]}
               </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setAddingMeal(meal);
-                  setManualMode(false);
-                  setPendingFood(null);
-                }}
-                className="py-3 -my-2 text-[14px] text-muted"
-              >
-                + добавить
-              </button>
+              {/* Добавлять можно только за сегодня — прошлые дни read-only. */}
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingMeal(meal);
+                    setManualMode(false);
+                    setPendingFood(null);
+                  }}
+                  className="py-3 -my-2 text-[14px] text-muted"
+                >
+                  + добавить
+                </button>
+              )}
             </div>
 
             {grouped[meal].length > 0 && (
@@ -145,6 +166,7 @@ export default function DiaryPage() {
                       entry={entry}
                       food={food}
                       mode={mode}
+                      readOnly={readOnly}
                       onDelete={async () => {
                         if (entry.id != null) {
                           // Снимок до удаления — для undo (F3).
